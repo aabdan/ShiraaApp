@@ -45,207 +45,198 @@ namespace ShiraaAppBlazour;
 )]
 public class ShiraaAppBlazourHttpApiHostModule : AbpModule
 {
-    public override void PreConfigureServices(ServiceConfigurationContext context)
-    {
-        PreConfigure<OpenIddictBuilder>(builder =>
-        {
-            builder.AddValidation(options =>
-            {
-                options.AddAudiences("ShiraaAppBlazour");
-                options.UseLocalServer();
-                options.UseAspNetCore();
-            });
-        });
-    }
 
-    public override void ConfigureServices(ServiceConfigurationContext context)
-    {
-        var configuration = context.Services.GetConfiguration();
-        var hostingEnvironment = context.Services.GetHostingEnvironment();
+    // using Volo.Abp.OpenIddict;
 
-        ConfigureAuthentication(context);
-        ConfigureBundles();
-        ConfigureUrls(configuration);
-        ConfigureConventionalControllers();
-        ConfigureVirtualFileSystem(context);
-        ConfigureCors(context, configuration);
-        ConfigureSwaggerServices(context, configuration);
-    }
-
-    private void ConfigureAuthentication(ServiceConfigurationContext context)
-    {
-        context.Services.ForwardIdentityAuthenticationForBearer(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
-        context.Services.Configure<AbpClaimsPrincipalFactoryOptions>(options =>
-        {
-            options.IsDynamicClaimsEnabled = true;
-        });
-    }
-
-    private void ConfigureBundles()
-    {
-        Configure<AbpBundlingOptions>(options =>
-        {
-            options.StyleBundles.Configure(
-                LeptonXLiteThemeBundles.Styles.Global,
-                bundle =>
-                {
-                    bundle.AddFiles("/global-styles.css");
-                }
-            );
-        });
-    }
-
-    private void ConfigureUrls(IConfiguration configuration)
-    {
-        Configure<AppUrlOptions>(options =>
-        {
-            options.Applications["MVC"].RootUrl = configuration["App:SelfUrl"];
-            options.RedirectAllowedUrls.AddRange(configuration["App:RedirectAllowedUrls"]?.Split(',') ?? Array.Empty<string>());
-
-            options.Applications["Angular"].RootUrl = configuration["App:ClientUrl"];
-            options.Applications["Angular"].Urls[AccountUrlNames.PasswordReset] = "account/reset-password";
-        });
-    }
-
-    private void ConfigureVirtualFileSystem(ServiceConfigurationContext context)
-    {
-        var hostingEnvironment = context.Services.GetHostingEnvironment();
-
-        if (hostingEnvironment.IsDevelopment())
-        {
-            Configure<AbpVirtualFileSystemOptions>(options =>
-            {
-                options.FileSets.ReplaceEmbeddedByPhysical<ShiraaAppBlazourDomainSharedModule>(
-                    Path.Combine(hostingEnvironment.ContentRootPath,
-                        $"..{Path.DirectorySeparatorChar}ShiraaAppBlazour.Domain.Shared"));
-                options.FileSets.ReplaceEmbeddedByPhysical<ShiraaAppBlazourDomainModule>(
-                    Path.Combine(hostingEnvironment.ContentRootPath,
-                        $"..{Path.DirectorySeparatorChar}ShiraaAppBlazour.Domain"));
-                options.FileSets.ReplaceEmbeddedByPhysical<ShiraaAppBlazourApplicationContractsModule>(
-                    Path.Combine(hostingEnvironment.ContentRootPath,
-                        $"..{Path.DirectorySeparatorChar}ShiraaAppBlazour.Application.Contracts"));
-                options.FileSets.ReplaceEmbeddedByPhysical<ShiraaAppBlazourApplicationModule>(
-                    Path.Combine(hostingEnvironment.ContentRootPath,
-                        $"..{Path.DirectorySeparatorChar}ShiraaAppBlazour.Application"));
-            });
-        }
-    }
-
-    private void ConfigureConventionalControllers()
-    {
-        Configure<AbpAspNetCoreMvcOptions>(options =>
-        {
-            options.ConventionalControllers.Create(typeof(ShiraaAppBlazourApplicationModule).Assembly);
-        });
-    }
-
-    private static void ConfigureSwaggerServices(ServiceConfigurationContext context, IConfiguration configuration)
-    {
-        context.Services.AddAbpSwaggerGenWithOAuth(
-            configuration["AuthServer:Authority"]!,
-            new Dictionary<string, string>
-            {
-                    {"ShiraaAppBlazour", "ShiraaAppBlazour API"}
-            },
-            options =>
-            {
-                options.SwaggerDoc("v1", new OpenApiInfo { Title = "ShiraaAppBlazour API", Version = "v1" });
-                options.DocInclusionPredicate((docName, description) => true);
-                options.CustomSchemaIds(type => type.FullName);
-            });
-    }
-
-    private void ConfigureCors(ServiceConfigurationContext context, IConfiguration configuration)
-    {
-        context.Services.AddCors(options =>
-        {
-            options.AddDefaultPolicy(builder =>
-            {
-                builder
-                    .WithOrigins(configuration["App:CorsOrigins"]?
-                        .Split(",", StringSplitOptions.RemoveEmptyEntries)
-                        .Select(o => o.RemovePostFix("/"))
-                        .ToArray() ?? Array.Empty<string>())
-                    .WithAbpExposedHeaders()
-                    .SetIsOriginAllowedToAllowWildcardSubdomains()
-                    .AllowAnyHeader()
-                    .AllowAnyMethod()
-                    .AllowCredentials();
-            });
-        });
-    }
-
-    public override void OnApplicationInitialization(ApplicationInitializationContext context)
-    {
-        var app = context.GetApplicationBuilder();
-        var env = context.GetEnvironment();
-
-        if (env.IsDevelopment())
-        {
-            app.UseDeveloperExceptionPage();
-        }
-
-        app.UseAbpRequestLocalization();
-
-        if (!env.IsDevelopment())
-        {
-            app.UseErrorPage();
-        }
-
-        app.UseCorrelationId();
-        app.UseStaticFiles();
-        app.UseRouting();
-        app.UseCors();
-        app.UseAuthentication();
-        app.UseAbpOpenIddictValidation();
-
-        if (MultiTenancyConsts.IsEnabled)
-        {
-            app.UseMultiTenancy();
-        }
-        app.UseUnitOfWork();
-        app.UseDynamicClaims();
-        app.UseAuthorization();
-
-        app.UseSwagger();
-        app.UseAbpSwaggerUI(c =>
-        {
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "ShiraaAppBlazour API");
-
-            var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
-            c.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
-            c.OAuthScopes("ShiraaAppBlazour");
-        });
-
-        app.UseAuditing();
-        app.UseAbpSerilogEnrichers();
-        app.UseConfiguredEndpoints();
-    }
-}
-
-// using Volo.Abp.OpenIddict;
-
-PreConfigure<OpenIddictBuilder>(builder =>
+    PreConfigure<OpenIddictBuilder>(builder =>
     {
         builder.AddValidation(options =>
         {
-            options.AddAudiences("Abp2Azure");
+            options.AddAudiences("ShiraaAppBlazour");
             options.UseLocalServer();
             options.UseAspNetCore();
         });
 
-var hostingEnvironment = context.Services.GetHostingEnvironment();
+        var hostingEnvironment = context.Services.GetHostingEnvironment();
 var configuration = context.Services.GetConfiguration();
 
-if (hostingEnvironment.IsDevelopment()) return;
+        if (hostingEnvironment.IsDevelopment()) return;
 
-PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
-{
-    options.AddDevelopmentEncryptionAndSigningCertificate = false;
-});
+        PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
+        {
+            options.AddDevelopmentEncryptionAndSigningCertificate = false;
+        });
 
 PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
 {
     serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["OpenIddictCertificate:X590:Password"]);
 });
     });
+
+
+
+public override void ConfigureServices(ServiceConfigurationContext context)
+{
+    var configuration = context.Services.GetConfiguration();
+    var hostingEnvironment = context.Services.GetHostingEnvironment();
+
+    ConfigureAuthentication(context);
+    ConfigureBundles();
+    ConfigureUrls(configuration);
+    ConfigureConventionalControllers();
+    ConfigureVirtualFileSystem(context);
+    ConfigureCors(context, configuration);
+    ConfigureSwaggerServices(context, configuration);
+}
+
+private void ConfigureAuthentication(ServiceConfigurationContext context)
+{
+    context.Services.ForwardIdentityAuthenticationForBearer(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
+    context.Services.Configure<AbpClaimsPrincipalFactoryOptions>(options =>
+    {
+        options.IsDynamicClaimsEnabled = true;
+    });
+}
+
+private void ConfigureBundles()
+{
+    Configure<AbpBundlingOptions>(options =>
+    {
+        options.StyleBundles.Configure(
+            LeptonXLiteThemeBundles.Styles.Global,
+            bundle =>
+            {
+                bundle.AddFiles("/global-styles.css");
+            }
+        );
+    });
+}
+
+private void ConfigureUrls(IConfiguration configuration)
+{
+    Configure<AppUrlOptions>(options =>
+    {
+        options.Applications["MVC"].RootUrl = configuration["App:SelfUrl"];
+        options.RedirectAllowedUrls.AddRange(configuration["App:RedirectAllowedUrls"]?.Split(',') ?? Array.Empty<string>());
+
+        options.Applications["Angular"].RootUrl = configuration["App:ClientUrl"];
+        options.Applications["Angular"].Urls[AccountUrlNames.PasswordReset] = "account/reset-password";
+    });
+}
+
+private void ConfigureVirtualFileSystem(ServiceConfigurationContext context)
+{
+    var hostingEnvironment = context.Services.GetHostingEnvironment();
+
+    if (hostingEnvironment.IsDevelopment())
+    {
+        Configure<AbpVirtualFileSystemOptions>(options =>
+        {
+            options.FileSets.ReplaceEmbeddedByPhysical<ShiraaAppBlazourDomainSharedModule>(
+                Path.Combine(hostingEnvironment.ContentRootPath,
+                    $"..{Path.DirectorySeparatorChar}ShiraaAppBlazour.Domain.Shared"));
+            options.FileSets.ReplaceEmbeddedByPhysical<ShiraaAppBlazourDomainModule>(
+                Path.Combine(hostingEnvironment.ContentRootPath,
+                    $"..{Path.DirectorySeparatorChar}ShiraaAppBlazour.Domain"));
+            options.FileSets.ReplaceEmbeddedByPhysical<ShiraaAppBlazourApplicationContractsModule>(
+                Path.Combine(hostingEnvironment.ContentRootPath,
+                    $"..{Path.DirectorySeparatorChar}ShiraaAppBlazour.Application.Contracts"));
+            options.FileSets.ReplaceEmbeddedByPhysical<ShiraaAppBlazourApplicationModule>(
+                Path.Combine(hostingEnvironment.ContentRootPath,
+                    $"..{Path.DirectorySeparatorChar}ShiraaAppBlazour.Application"));
+        });
+    }
+}
+
+private void ConfigureConventionalControllers()
+{
+    Configure<AbpAspNetCoreMvcOptions>(options =>
+    {
+        options.ConventionalControllers.Create(typeof(ShiraaAppBlazourApplicationModule).Assembly);
+    });
+}
+
+private static void ConfigureSwaggerServices(ServiceConfigurationContext context, IConfiguration configuration)
+{
+    context.Services.AddAbpSwaggerGenWithOAuth(
+        configuration["AuthServer:Authority"]!,
+        new Dictionary<string, string>
+        {
+                    {"ShiraaAppBlazour", "ShiraaAppBlazour API"}
+        },
+        options =>
+        {
+            options.SwaggerDoc("v1", new OpenApiInfo { Title = "ShiraaAppBlazour API", Version = "v1" });
+            options.DocInclusionPredicate((docName, description) => true);
+            options.CustomSchemaIds(type => type.FullName);
+        });
+}
+
+private void ConfigureCors(ServiceConfigurationContext context, IConfiguration configuration)
+{
+    context.Services.AddCors(options =>
+    {
+        options.AddDefaultPolicy(builder =>
+        {
+            builder
+                .WithOrigins(configuration["App:CorsOrigins"]?
+                    .Split(",", StringSplitOptions.RemoveEmptyEntries)
+                    .Select(o => o.RemovePostFix("/"))
+                    .ToArray() ?? Array.Empty<string>())
+                .WithAbpExposedHeaders()
+                .SetIsOriginAllowedToAllowWildcardSubdomains()
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        });
+    });
+}
+
+public override void OnApplicationInitialization(ApplicationInitializationContext context)
+{
+    var app = context.GetApplicationBuilder();
+    var env = context.GetEnvironment();
+
+    if (env.IsDevelopment())
+    {
+        app.UseDeveloperExceptionPage();
+    }
+
+    app.UseAbpRequestLocalization();
+
+    if (!env.IsDevelopment())
+    {
+        app.UseErrorPage();
+    }
+
+    app.UseCorrelationId();
+    app.UseStaticFiles();
+    app.UseRouting();
+    app.UseCors();
+    app.UseAuthentication();
+    app.UseAbpOpenIddictValidation();
+
+    if (MultiTenancyConsts.IsEnabled)
+    {
+        app.UseMultiTenancy();
+    }
+    app.UseUnitOfWork();
+    app.UseDynamicClaims();
+    app.UseAuthorization();
+
+    app.UseSwagger();
+    app.UseAbpSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "ShiraaAppBlazour API");
+
+        var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
+        c.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
+        c.OAuthScopes("ShiraaAppBlazour");
+    });
+
+    app.UseAuditing();
+    app.UseAbpSerilogEnrichers();
+    app.UseConfiguredEndpoints();
+}
+}
+
