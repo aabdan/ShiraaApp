@@ -221,4 +221,32 @@ public class ShiraaAppBlazourHttpApiHostModule : AbpModule
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
     }
+
+    // using Volo.Abp.OpenIddict;
+
+    PreConfigure<OpenIddictBuilder>(builder =>
+    {
+        builder.AddValidation(options =>
+        {
+            options.AddAudiences("Abp2Azure");
+            options.UseLocalServer();
+            options.UseAspNetCore();
+        });
+
+        var hostingEnvironment = context.Services.GetHostingEnvironment();
+var configuration = context.Services.GetConfiguration();
+
+        if (hostingEnvironment.IsDevelopment()) return;
+
+        PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
+        {
+            options.AddDevelopmentEncryptionAndSigningCertificate = false;
+        });
+
+PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
+{
+    serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["OpenIddictCertificate:X590:Password"]);
+});
+    });
+
 }
