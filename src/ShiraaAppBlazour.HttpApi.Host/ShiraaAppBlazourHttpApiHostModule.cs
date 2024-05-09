@@ -221,10 +221,11 @@ public class ShiraaAppBlazourHttpApiHostModule : AbpModule
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
     }
+}
 
-    // using Volo.Abp.OpenIddict;
+// using Volo.Abp.OpenIddict;
 
-    PreConfigure<OpenIddictBuilder>(builder =>
+PreConfigure<OpenIddictBuilder>(builder =>
     {
         builder.AddValidation(options =>
         {
@@ -233,20 +234,18 @@ public class ShiraaAppBlazourHttpApiHostModule : AbpModule
             options.UseAspNetCore();
         });
 
-        var hostingEnvironment = context.Services.GetHostingEnvironment();
+var hostingEnvironment = context.Services.GetHostingEnvironment();
 var configuration = context.Services.GetConfiguration();
 
-        if (hostingEnvironment.IsDevelopment()) return;
+if (hostingEnvironment.IsDevelopment()) return;
 
-        PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
-        {
-            options.AddDevelopmentEncryptionAndSigningCertificate = false;
-        });
+PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
+{
+    options.AddDevelopmentEncryptionAndSigningCertificate = false;
+});
 
 PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
 {
     serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["OpenIddictCertificate:X590:Password"]);
 });
     });
-
-}
